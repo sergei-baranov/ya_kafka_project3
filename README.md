@@ -20,7 +20,7 @@
   - [Давайте посмотрим список заблокированных слов](#cli_commands_list_block_words)
 - [Работа с приложением через http-api](#http_api)
   - [Спросим, заблокирована ли "миска"](#http_api_get_block_wordhttp_api_get_block_word)
-  - [Спросим весь список заблокированных слов](№http_api_get_block_words)
+  - [Спросим весь список заблокированных слов](#http_api_get_block_words)
 
 ## <a name="compose_up">Как развернуть</a>
 
