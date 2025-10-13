@@ -1,0 +1,100 @@
+services:
+  kafka-0:
+    image: ${IMAGE}
+    ports:
+      - "9094:9094"
+    environment:
+      # /bin/kafka-storage random-uuid
+      # Cur3Qq9rTqaTMzHPWNJAPg MCYYoExhSXacIqthaCbf8Q 0oDZ0cEfQXOYPTjx3UPdVA M7GpnOy7TXyX3lK42nERUQ
+      - CLUSTER_ID=MCYYoExhSXacIqthaCbf8Q
+      - KAFKA_NODE_ID=0
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-0:9092,EXTERNAL://127.0.0.1:9094
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KSQL_KSQL_STREAMS_REPLICATION_FACTOR=3
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - CONTROL_CENTER_REPLICATION_FACTOR=3
+    volumes:
+      - kafka_0_data:/var/lib/kafka/data
+
+  kafka-1:
+    image: ${IMAGE}
+    ports:
+      - "9194:9094"
+    environment:
+      - CLUSTER_ID=MCYYoExhSXacIqthaCbf8Q
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9194
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092,EXTERNAL://127.0.0.1:9194
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KSQL_KSQL_STREAMS_REPLICATION_FACTOR=3
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - CONTROL_CENTER_REPLICATION_FACTOR=3
+    volumes:
+      - kafka_1_data:/var/lib/kafka/data
+
+  kafka-2:
+    image: ${IMAGE}
+    ports:
+      - "9294:9094"
+    environment:
+      - CLUSTER_ID=MCYYoExhSXacIqthaCbf8Q
+      - KAFKA_NODE_ID=2
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9294
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092,EXTERNAL://127.0.0.1:9294
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KSQL_KSQL_STREAMS_REPLICATION_FACTOR=3
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - CONTROL_CENTER_REPLICATION_FACTOR=3
+    volumes:
+      - kafka_2_data:/var/lib/kafka/data
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:latest
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+    ports:
+      - "8071:8081"
+    environment:
+      - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://kafka-0:9092,kafka-1:9092,kafka-2:9092
+      - SCHEMA_REGISTRY_HOST_NAME=schema-registry
+      - SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    ports:
+      - "8070:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
+      - KAFKA_CLUSTERS_0_NAME=kraft
+
+  python-app:
+    build:
+      context: .
+      dockerfile: DockerfilePython
+    ports:
+      - "6066-6077:6066-6077"
+    volumes:
+      - python_app:/app
+    stdin_open: true
+    tty: true
+
+volumes:
+  kafka_0_data:
+  kafka_1_data:
+  kafka_2_data:
+  python_app:
