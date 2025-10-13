@@ -58,8 +58,6 @@ sudo docker compose --env-file .env.793 down -v
 Там прописана работа приложения в фоне через `supervisord`.
 См. `DockerfilePython` и `supervisord.conf`.
 
-См. тж. .
-
 Убедимся, что приложение запустилось и работает:
 - можно проверить логи контейнера,
 - можно Web UI от `provectuslabs/kafka-ui`,
@@ -108,7 +106,7 @@ http://localhost:8070/ui/clusters/kraft/all-topics
 ```
 
 Есть `volume`, при необходимости - ищем путь к нему
-через `dicker inspect` контейнера,
+через `docker inspect` контейнера,
 правим `py`-файлы приложения, рестартуем контейнер...
 
 ## <a name="happy_way_test">Быстрый тест Happy Way</a>
