@@ -21,6 +21,7 @@
 - [Работа с приложением через http-api](#http_api)
   - [Спросим, заблокирована ли "миска"](#http_api_get_block_wordhttp_api_get_block_word)
   - [Спросим весь список заблокированных слов](#http_api_get_block_words)
+- [ksqlDB](#ksqlDB)
 
 ## <a name="compose_up">Как развернуть</a>
 
@@ -61,7 +62,7 @@ sudo docker compose --env-file .env.793 down -v
 Убедимся, что приложение запустилось и работает:
 - можно проверить логи контейнера,
 - можно Web UI от `provectuslabs/kafka-ui`,
-- можно web ui от Faust.
+- можно http api от Faust.
 
 1. **Логи контейнера**:
 
@@ -84,7 +85,7 @@ http://localhost:8070/ui/clusters/kraft/all-topics
 Тут должны быть видны несколько топиков, которые приложение создаёт при запуске
 (релизация - через `signal` `app.on_after_configured.connect`, см. `app/messenger/messenger_core/signals.py`).
 
-3. **Faust web ui**:
+3. **Faust http api**:
 
 **NB:** порт для фонового приложения прописан **6077** (если ничего не менять в `supervisord.conf`).
 
@@ -287,7 +288,7 @@ Faust вообще никак не даёт перехавтить ошибку
 **supervisor_strategy**:
 После указания всем агентам аргумента `supervisor_strategy=mode.CrashingSupervisor` - всё хорошо:
 
-- отправляем сообщение в невалидной схемой
+- отправляем сообщение в невалидной схеме
 - потом отправляем нормальное
 - видим работающее приложение, а в результатах обработки только второе сообщение
 
@@ -415,3 +416,92 @@ root@...:/app# faust -A messenger.app list-block-words
 ---
 
 Пока что всё. Есть траблы :)
+
+## <a name="ksqlDB">ksqlDB</a>
+
+В ансамбле развёрнуты контейнеры `ksqldb-server` и `ksqldb-cli`.
+
+**NB:** на хост мы засветили порт 8078 у ksqldb-server (в докере стандартный 8088).
+
+Заходим в `ksqldb-cli`:
+
+```bash
+...$ sudo docker exec -it ya_kafka_project3-ksqldb-cli-1 ksql http://ksqldb-server:8088
+...
+
+CLI v7.9.4, Server v7.9.4 located at http://ksqldb-server:8088
+Server Status: RUNNING
+
+Having trouble? Type 'help' (case-insensitive) for a rundown of how things work!
+
+ksql> 
+ksql> SHOW TOPICS EXTENDED;
+
+ Kafka Topic                 | Partitions | Partition Replicas | Consumers | ConsumerGroups 
+------------------------------------------------------------------------------
+ blocked_users               | 1          | 1                  | 1         | 1              
+ blocked_words               | 1          | 1                  | 1         | 1              
+ default_ksql_processing_log | 1          | 1                  | 0         | 0              
+ filtered_messages           | 1          | 1                  | 0         | 0              
+ messages                    | 1          | 1                  | 1         | 1
+```
+
+```bash
+ksql> CREATE TABLE FILTERED_MESSAGES (
+>    ID INT PRIMARY KEY,
+>    USER_ID STRING,
+>    RECIPIENT_ID STRING,
+>    TIMESTAMP TIMESTAMP,
+>    MESSAGE STRING
+>)
+>  WITH (kafka_topic = 'filtered_messages', value_format = 'JSON');
+
+ Message       
+---------------
+ Table created 
+---------------
+ksql> 
+```
+
+```bash
+ksql> SELECT user_id, recipient_id, timestamp, message
+>FROM filtered_messages
+>WHERE recipient_id = 'Петя'
+>EMIT CHANGES LIMIT 10;
++---------------------+---------------------+---------------------+---------------------+
+|USER_ID              |RECIPIENT_ID         |TIMESTAMP            |MESSAGE              |
++---------------------+---------------------+---------------------+---------------------+
+
+Press CTRL-C to interrupt
+
+```
+
+Идём в web-ui и добавляем сообщение от Васи для Лены (в топик `messages`)
+
+```json
+{
+    "user_id": "Вася",
+    "recipient_id": "Лена",
+    "timestamp": "2024-03-20T15:30:45.123456",
+    "message": "Привет, Лена"
+}
+```
+
+Смотрим в консоли с ksqldb - ничего не изменилось.
+
+Идём в web-ui и добавляем сообщение от Васи для Пети (в топик `messages`)
+
+```json
+{
+    "user_id": "Вася",
+    "recipient_id": "Петя",
+    "timestamp": "2024-03-20T15:30:45.123456",
+    "message": "Здравствуйте, Пётр"
+}
+```
+
+Смотрим в консоли с ksqldb - И ОПЯТЬ ничего не изменилось.
+
+НО: хотя бы оно запустилось, показало топики, создало таблицу на основе топика...
+
+Остальное - TODO

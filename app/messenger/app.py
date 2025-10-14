@@ -12,7 +12,8 @@ app = faust.App(
         'bootstrap_servers', 'kafka://localhost:9092'),
     store='rocksdb://',
     autodiscover=True,
-    origin='messenger'
+    origin='messenger',
+    # processing_guarantee='exactly_once',
 )
 
 

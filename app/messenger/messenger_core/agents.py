@@ -1,3 +1,4 @@
+import re
 from typing import AsyncIterable
 
 from faust import StreamT
@@ -10,8 +11,11 @@ from .topics import (blocked_users_topic, blocked_words_topic,
                      filtered_messages_topic, messages_topic)
 
 
-@app.agent(messages_topic, sink=[filtered_messages_topic],
-           supervisor_strategy=mode.CrashingSupervisor)
+@app.agent(
+    messages_topic,
+    sink=[filtered_messages_topic],
+    supervisor_strategy=mode.CrashingSupervisor,
+)
 async def filter_messages(messages):
     """
     если отправитель user_id
@@ -21,7 +25,7 @@ async def filter_messages(messages):
     """
     msg: User2UserMessage
     # TODO: schema с определением и key_type, и value_type, в качестве key
-    # использовать user_id, тогда поток не надо репарттиционировать
+    # использовать user_id, тогда поток не надо репартиционировать
     # через group_by
     async for msg in messages.group_by(User2UserMessage.user_id):
         if (
@@ -29,12 +33,15 @@ async def filter_messages(messages):
             or msg.recipient_id not in block_users_table[msg.user_id]
         ):
             for word in block_words_table:
-                msg.message = msg.message.replace(word, '***')
+                pattern = re.compile(f'\\b{re.escape(word)}\\b', re.I)
+                msg.message = re.sub(pattern, '***', msg.message)
             yield msg
 
 
-@app.agent(blocked_words_topic,
-           supervisor_strategy=mode.CrashingSupervisor)
+@app.agent(
+    blocked_words_topic,
+    supervisor_strategy=mode.CrashingSupervisor
+)
 async def persist_block_words(
         messages: StreamT[BlockWordMessage]) -> AsyncIterable[str]:
     """
@@ -45,7 +52,7 @@ async def persist_block_words(
     msg: BlockWordMessage
     # TODO: schema с определением и key_type, и value_type, в качестве key
     # использовать word, value_type=ищщдб тогда поток не надо
-    # репарттиционировать через group_by
+    # репартиционировать через group_by
     async for msg in messages.group_by(BlockWordMessage.word):
         if msg.block:
             block_words_table[msg.word] = True
@@ -55,8 +62,10 @@ async def persist_block_words(
         yield msg.word + ': ' + str(block_words_table.get(msg.word, False))
 
 
-@app.agent(blocked_users_topic,
-           supervisor_strategy=mode.CrashingSupervisor)
+@app.agent(
+    blocked_users_topic,
+    supervisor_strategy=mode.CrashingSupervisor
+)
 async def persist_block_users(messages):
     """
     поток сообщений-команд о блокировке/разблокировке отправителя получателем
@@ -65,7 +74,7 @@ async def persist_block_users(messages):
     """
     msg: BlockUserMessage
     # TODO: schema с определением и key_type, и value_type, в качестве key
-    # использовать recipient_id, тогда поток не надо репарттиционировать
+    # использовать recipient_id, тогда поток не надо репартиционировать
     # через group_by
     async for msg in messages.group_by(BlockUserMessage.recipient_id):
         blocked_donors: dict[str, bool] = block_users_table[msg.recipient_id]

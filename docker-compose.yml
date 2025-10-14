@@ -62,7 +62,7 @@ services:
       - kafka_2_data:/var/lib/kafka/data
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:latest
+    image: ${IMAGE_SCHEMA_REGISTRY}
     depends_on:
       - kafka-0
       - kafka-1
@@ -75,7 +75,7 @@ services:
       - SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081
 
   kafka-ui:
-    image: provectuslabs/kafka-ui:v0.7.2
+    image: ${IMAGE_PROVECTUSLABS_KAFKA_UI}
     ports:
       - "8070:8080"
     environment:
@@ -93,8 +93,39 @@ services:
     stdin_open: true
     tty: true
 
+  ksqldb-server:
+    image: ${IMAGE_KSQLDB_SERVER}
+    hostname: ksqldb-server
+    container_name: ksqldb-server
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+      - schema-registry
+    ports:
+      - "8078:8088"
+    volumes:
+      - ksqldb_server_extensions:/opt/ksqldb-udfs
+    environment:
+      - KSQL_LISTENERS=http://0.0.0.0:8088
+      - KSQL_BOOTSTRAP_SERVERS=kafka-0:9092,kafka-1:9092,kafka-2:9092
+      - KSQL_KSQL_SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE=true
+      - KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE=true
+      # Configuration for UDFs
+      - KSQL_KSQL_EXTENSION_DIR=/opt/ksqldb-udfs
+
+  ksqldb-cli:
+    image: ${IMAGE_KSQLDB_CLI}
+    depends_on:
+      - ksqldb-server
+    # docker exec -it ksqldb-cli ksql http://ksqldb-server:8088
+    stdin_open: true
+    tty: true
+
 volumes:
   kafka_0_data:
   kafka_1_data:
   kafka_2_data:
   python_app:
+  ksqldb_server_extensions:
